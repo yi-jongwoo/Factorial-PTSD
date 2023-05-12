@@ -22,68 +22,190 @@ cudaError_t addWithCuda(long long *crr,long long num);
 #define NM (N+M)
 typedef unsigned int ui;
 typedef unsigned long long ull;
-__device__
-void m_plus(ui* r, ui* x, ui* y) {
-	ull k = 0;
-	for (int i = 0; i < NM; i++) {
-		k += (ull)x[i] + y[i];
-		r[i] = k;
-		k >>= 32;
-	}
+#define o_plus(r0,r1,r2,r3,r4,r5,x0,x1,x2,x3,x4,x5,y0,y1,y2,y3,y4,y5) { \
+	ull k=(ull)x0+y0; r0=k; k>>=32; \
+	k+=(ull)x1+y1; r1=k; k>>=32; \
+	k+=(ull)x2+y2; r2=k; k>>=32; \
+	k+=(ull)x3+y3; r3=k; k>>=32; \
+	k+=(ull)x4+y4; r4=k; k>>=32; \
+	k+=(ull)x5+y5; r5=k; \
+}
+#define o_minus(r0,r1,r2,r3,r4,r5,x0,x1,x2,x3,x4,x5,y0,y1,y2,y3,y4,y5) { \
+	signed long long k=(ull)x0-y0; r0=k; k>>=32; \
+	k+=(ull)x1-y1; r1=k; k>>=32; \
+	k+=(ull)x2-y2; r2=k; k>>=32; \
+	k+=(ull)x3-y3; r3=k; k>>=32; \
+	k+=(ull)x4-y4; r4=k; k>>=32; \
+	k+=(ull)x5-y5; r5=k; \
+}
+#define o_times(r0,r1,r2,r3,r4,r5,x0,x1,x2,x3,x4,x5,y0,y1,y2,y3,y4,y5) { \
+	ull t0=(ull)x0*y0; \
+	ull t1=(t0>>32)+(ull)x0*y1; \
+	ull t2=t1>>32; t1&=0xffffffff; t1+=(ull)x1*y0; \
+	t2+=(t1>>32)+(ull)x0*y2; ull t3=t2>>32; t2&=0xffffffff; t2+=(ull)x1*y1; \
+		t3+=t2>>32; t2&=0xffffffff; t2+=(ull)x2*y0; \
+	t3+=(t2>>32)+(ull)x0*y3; ull t4=t3>>32; t3&=0xffffffff; t3+=(ull)x1*y2; \
+		t4+=t3>>32; t3&=0xffffffff; t3+=(ull)x2*y1; \
+		t4+=t3>>32; t3&=0xffffffff; t3+=(ull)x3*y0; \
+	t4+=(t3>>32)+(ull)x0*y4; ull t5=t4>>32; t4&=0xffffffff; t4+=(ull)x1*y3; \
+		t5+=t4>>32; t4&=0xffffffff; t4+=(ull)x2*y2; \
+		t5+=t4>>32; t4&=0xffffffff; t4+=(ull)x3*y1; \
+		t5+=t4>>32; t4&=0xffffffff; t4+=(ull)x4*y0; \
+	t5+=(t4>>32)+(ull)x0*y5; ull t6=t5>>32; t5&=0xffffffff; t5+=(ull)x1*y4; \
+		t6+=t5>>32; t5&=0xffffffff; t5+=(ull)x2*y3; \
+		t6+=t5>>32; t5&=0xffffffff; t5+=(ull)x3*y2; \
+		t6+=t5>>32; t5&=0xffffffff; t5+=(ull)x4*y1; \
+		t6+=t5>>32; t5&=0xffffffff; t5+=(ull)x5*y0; \
+	t6+=(t5>>32)+(ull)x1*y5; ull t7=t6>>32; t6&=0xffffffff; t6+=(ull)x2*y4; \
+		t7+=t6>>32; t6&=0xffffffff; t6+=(ull)x3*y3; \
+		t7+=t6>>32; t6&=0xffffffff; t6+=(ull)x4*y2; \
+		t7+=t6>>32; t6&=0xffffffff; t6+=(ull)x5*y1; \
+	t7+=(t6>>32)+(ull)x2*y5; ull t8=t7>>32; t7&=0xffffffff; t7+=(ull)x3*y4; \
+		t8+=t7>>32; t7&=0xffffffff; t7+=(ull)x4*y3; \
+		t8+=t7>>32; t7&=0xffffffff; t7+=(ull)x5*y2; \
+	t8+=(t7>>32)+(ull)x3*y5; ui t9=t8>>32; t8&=0xffffffff; t8+=(ull)x4*y4; \
+		t9+=t8>>32; t8&=0xffffffff; t8+=(ull)x5*y3; \
+	t9+=(ull)x4*y5+(ull)x5*y4; \
+	r0=t4; r1=t5; r2=t6; r3=t7; r4=t8; r5=t9; \
+}
+#define o_div(r0,r1,r2,r3,r4,r5,x0,x1,x2,x3,x4,x5,y0,y1,y2,y3,y4,y5) { \
+	ui t2=x0,t3=x1,t4=x2,t5=x3,t6=x4,t7=x5,t8=0,t9=0,tA=0; \
+	r0=0; r1=0; r2=0; r3=0; r4=0; r5=0; \
+	for (int i = 31; i >= 0; i--) { \
+		tA=t9>>31; \
+		t9=t9<<1|t8>>31; \
+		t8=t8<<1|t7>>31; \
+		t7=t7<<1|t6>>31; \
+		t6=t6<<1|t5>>31; \
+		t5=t5<<1|t4>>31; \
+		t4=t4<<1|t3>>31; \
+		t3=t3<<1|t2>>31; \
+		t2<<=1; \
+		if(tA || \
+			t9>y5 || t9==y5&&( \
+			t8>y4 || t8==y4&&( \
+			t7>y3 || t7==y3&&( \
+			t6>y2 || t6==y2&&( \
+			t5>y1 || t5==y1&&( \
+			t4>=y0 \
+		)))))){ \
+			r5|=1u<<i; \
+			o_minus(t4,t5,t6,t7,t8,t9,t4,t5,t6,t7,t8,t9,y0,y1,y2,y3,y4,y5) \
+		} \
+	} \
+	for (int i = 31; i >= 0; i--) { \
+		tA=t9>>31; \
+		t9=t9<<1|t8>>31; \
+		t8=t8<<1|t7>>31; \
+		t7=t7<<1|t6>>31; \
+		t6=t6<<1|t5>>31; \
+		t5=t5<<1|t4>>31; \
+		t4=t4<<1|t3>>31; \
+		t3<<=1; \
+		if(tA || \
+			t9>y5 || t9==y5&&( \
+			t8>y4 || t8==y4&&( \
+			t7>y3 || t7==y3&&( \
+			t6>y2 || t6==y2&&( \
+			t5>y1 || t5==y1&&( \
+			t4>=y0 \
+		)))))){ \
+			r4|=1u<<i;\
+			o_minus(t4,t5,t6,t7,t8,t9,t4,t5,t6,t7,t8,t9,y0,y1,y2,y3,y4,y5) \
+		} \
+	} \
+	for (int i = 31; i >= 0; i--) { \
+		tA=t9>>31; \
+		t9=t9<<1|t8>>31; \
+		t8=t8<<1|t7>>31; \
+		t7=t7<<1|t6>>31; \
+		t6=t6<<1|t5>>31; \
+		t5=t5<<1|t4>>31; \
+		t4<<=1; \
+		if(tA || \
+			t9>y5 || t9==y5&&( \
+			t8>y4 || t8==y4&&( \
+			t7>y3 || t7==y3&&( \
+			t6>y2 || t6==y2&&( \
+			t5>y1 || t5==y1&&( \
+			t4>=y0 \
+		)))))){ \
+			r3|=1u<<i;\
+			o_minus(t4,t5,t6,t7,t8,t9,t4,t5,t6,t7,t8,t9,y0,y1,y2,y3,y4,y5) \
+		} \
+	} \
+	for (int i = 31; i >= 0; i--) { \
+		tA=t9>>31; \
+		t9=t9<<1|t8>>31; \
+		t8=t8<<1|t7>>31; \
+		t7=t7<<1|t6>>31; \
+		t6=t6<<1|t5>>31; \
+		t5=t5<<1|t4>>31; \
+		t4<<=1; \
+		if(tA || \
+			t9>y5 || t9==y5&&( \
+			t8>y4 || t8==y4&&( \
+			t7>y3 || t7==y3&&( \
+			t6>y2 || t6==y2&&( \
+			t5>y1 || t5==y1&&( \
+			t4>=y0 \
+		)))))){ \
+			r2|=1u<<i;\
+			o_minus(t4,t5,t6,t7,t8,t9,t4,t5,t6,t7,t8,t9,y0,y1,y2,y3,y4,y5) \
+		} \
+	} \
+	for (int i = 31; i >= 0; i--) { \
+		tA=t9>>31; \
+		t9=t9<<1|t8>>31; \
+		t8=t8<<1|t7>>31; \
+		t7=t7<<1|t6>>31; \
+		t6=t6<<1|t5>>31; \
+		t5=t5<<1|t4>>31; \
+		t4<<=1; \
+		if(tA || \
+			t9>y5 || t9==y5&&( \
+			t8>y4 || t8==y4&&( \
+			t7>y3 || t7==y3&&( \
+			t6>y2 || t6==y2&&( \
+			t5>y1 || t5==y1&&( \
+			t4>=y0 \
+		)))))){ \
+			r1|=1u<<i;\
+			o_minus(t4,t5,t6,t7,t8,t9,t4,t5,t6,t7,t8,t9,y0,y1,y2,y3,y4,y5) \
+		} \
+	} \
+	for (int i = 31; i >= 0; i--) { \
+		tA=t9>>31; \
+		t9=t9<<1|t8>>31; \
+		t8=t8<<1|t7>>31; \
+		t7=t7<<1|t6>>31; \
+		t6=t6<<1|t5>>31; \
+		t5=t5<<1|t4>>31; \
+		t4<<=1; \
+		if(tA || \
+			t9>y5 || t9==y5&&( \
+			t8>y4 || t8==y4&&( \
+			t7>y3 || t7==y3&&( \
+			t6>y2 || t6==y2&&( \
+			t5>y1 || t5==y1&&( \
+			t4>=y0 \
+		)))))){ \
+			r0|=1u<<i; \
+			o_minus(t4,t5,t6,t7,t8,t9,t4,t5,t6,t7,t8,t9,y0,y1,y2,y3,y4,y5) \
+		} \
+	} \
 }
 __device__
-ui m_minus(ui* r, ui* x, ui* y) {
-	signed long long k = 0;
-	for (int i = 0; i < NM; i++) {
-		k += (ull)x[i] - y[i];
-		r[i] = k;
-		k >>= 32;
-	}
-	return k;
+void m_plus(ui* r, ui* x, ui* y) {
+	o_plus(r[0], r[1], r[2], r[3], r[4], r[5], x[0], x[1], x[2], x[3], x[4], x[5], y[0], y[1], y[2], y[3], y[4], y[5]);
 }
 __device__
 void m_times(ui* r, ui* x, ui* y) {
-	ull tmp[2 * NM] = { 0 };
-	ull atmp[2 * NM] = { 0 };
-	for (int i = 0; i < NM; i++)
-		for (int j = 0; j < NM; j++) {
-			tmp[i + j] += (ull)x[i] * y[j];
-			atmp[i+j] += tmp[i+j]>>32;
-			tmp[i+j] &= 0xffffffff;
-		}
-	for (int i = 0; i < (2 * N + M); i++) {
-		tmp[i + 1] += tmp[i] >> 32;
-		atmp[i + 1] += atmp[i] >> 32;
-		tmp[i + 1] += atmp[i] & 0xffffffff;
-	}
-	for (int i = 0; i < NM; i++)
-		r[i] = tmp[i + N];
+	o_times(r[0], r[1], r[2], r[3], r[4], r[5], x[0], x[1], x[2], x[3], x[4], x[5], y[0], y[1], y[2], y[3], y[4], y[5]);
 }
 __device__
 void m_div(ui* r, ui* x, ui* y) { // *r <-> *y
-	ui t[NM * 2] = { 0 };
-	for (int i = 0; i < NM; i++)
-		t[i + N - M] = x[i]; // assert that doesnt exceed 1e64
-	for (int i = 0; i < NM; i++)
-		r[i] = 0;
-	for (int i = NM * 32 - 1; i >= 0; i--) {
-		for (int j = NM * 2 - 1; j >= 0; j--) {
-			t[j] <<= 1;
-			if (j)
-				t[j] |= t[j - 1] >> 31;
-		}
-		for (int j = NM * 2 - 1; j >= 0; j--) {
-			ui yy = j >= N && j < NM + N ? y[j - N] : 0;
-			if (t[j] > yy) {
-				r[i / 32] |= 1u << (i % 32);
-				if (m_minus(t + N, t + N, y))
-					for (int k = NM + N; !t[k]--; k++);
-				break;
-			}
-			else if (t[j] < yy)
-				break;
-		}
-	}
+	o_div(r[0], r[1], r[2], r[3], r[4], r[5], x[0], x[1], x[2], x[3], x[4], x[5], y[0], y[1], y[2], y[3], y[4], y[5]);
 }
 __device__
 void m_log2(ui* r, ui* x) {
